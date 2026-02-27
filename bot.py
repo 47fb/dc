@@ -3,11 +3,14 @@ from discord.ext import commands
 from discord import app_commands, ui, ButtonStyle
 import os
 
+# TOKEN BOTA - już wklejony
+DISCORD_TOKEN = "MTQ3NzA1NjIzMDMxMTg1ODQ3Ng.G9kYea.9ie7GByexyKuU5BtYbGSztFHCxbBzLS-Sk4sKI"
+
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# Ceny produktów
+# Ceny produktów - wszystkie w jednym miejscu
 CENY = {
     "napoje": {
         "☕ Expresso": 1100,
@@ -30,7 +33,7 @@ CENY = {
 
 class GlownyView(ui.View):
     def __init__(self):
-        super().__init__(timeout=None)  # Bez timeout - przyciski działają zawsze
+        super().__init__(timeout=None)
         self.koszyk = {}
     
     @ui.button(label="☕ Kupno pojedyńcze", style=ButtonStyle.primary, emoji="☕", custom_id="kupno_pojedyńcze")
@@ -114,9 +117,8 @@ class IloscView(ui.View):
             self.ilosc -= 1
             await self.update_message(interaction)
     
-    @ui.button(style=ButtonStyle.gray)
+    @ui.button(label="Ilość: 1", style=ButtonStyle.gray)
     async def display_count(self, interaction: discord.Interaction, button: ui.Button):
-        # Przycisk tylko informacyjny
         await interaction.response.defer()
     
     @ui.button(label="➕", style=ButtonStyle.green)
@@ -132,7 +134,7 @@ class IloscView(ui.View):
         embed.add_field(name="Produkt", value=self.produkt, inline=True)
         embed.add_field(name="Ilość", value=self.ilosc, inline=True)
         embed.add_field(name="Cena całkowita", value=f"**{total} $**", inline=False)
-        embed.set_footer(text="📦 × Cena za produkty to " + str(total) + " $")
+        embed.set_footer(text=f"📦 × Cena za {self.ilosc} produkt/ów to {total} $")
         
         view = ui.View()
         view.add_item(ZamknijButton())
@@ -142,7 +144,7 @@ class IloscView(ui.View):
     async def update_message(self, interaction: discord.Interaction):
         # Aktualizujemy przycisk z ilością
         for child in self.children:
-            if child.style == ButtonStyle.gray:
+            if child.label and "Ilość:" in child.label:
                 child.label = f"Ilość: {self.ilosc}"
                 break
         
@@ -222,8 +224,5 @@ async def cennik(interaction: discord.Interaction):
     view = GlownyView()
     await interaction.response.send_message(embed=embed, view=view)
 
-token = os.getenv('DISCORD_TOKEN')
-if token:
-    bot.run(token)
-else:
-    print('❌ Brak tokenu DISCORD_TOKEN')
+# URUCHOMIENIE BOTA Z TOKENEM
+bot.run(DISCORD_TOKEN)
