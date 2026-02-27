@@ -48,68 +48,76 @@ class GlownyView(ui.View):
 
     @ui.button(label="🛒 Kalkulator pojedynczego produktu", style=ButtonStyle.primary, emoji="🛒", custom_id="kalkulator_poj")
     async def pojedynczy_button(self, interaction: discord.Interaction, button: ui.Button):
-        await self.pokaz_kategorie(interaction)
+        # Wyświetlamy select z wszystkimi produktami
+        await self.pokaz_wybor_produktu(interaction)
 
     @ui.button(label="📦 Kalkulator zestawów", style=ButtonStyle.success, emoji="📦", custom_id="kalkulator_zest")
     async def zestawy_button(self, interaction: discord.Interaction, button: ui.Button):
-        await self.pokaz_zestawy(interaction)
+        # Wyświetlamy select z zestawami
+        await self.pokaz_wybor_zestawu(interaction)
 
-    async def pokaz_kategorie(self, interaction: discord.Interaction):
-        embed = discord.Embed(title="Wybierz kategorię produktu", color=0xFF7600)
-        view = KategorieView()
+    async def pokaz_wybor_produktu(self, interaction: discord.Interaction):
+        embed = discord.Embed(title="Wybierz produkt", color=0xFF7600)
+        # Tworzymy listę opcji dla selecta
+        options = []
+        for kategoria, produkty in MENU.items():
+            for nazwa, cena in produkty.items():
+                # Dodajemy emoji z kategorii do nazwy dla lepszej orientacji
+                opis = f"{cena} $"
+                options.append(discord.SelectOption(label=nazwa, value=f"{kategoria}|{nazwa}", description=opis, emoji=nazwa.split()[0]))
+        view = WyborProduktuView(options)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
-    async def pokaz_zestawy(self, interaction: discord.Interaction):
+    async def pokaz_wybor_zestawu(self, interaction: discord.Interaction):
         embed = discord.Embed(title="Wybierz zestaw", color=0xFF7600)
-        view = ZestawyWyborView()
+        options = []
+        for nazwa, cena in ZESTAWY.items():
+            options.append(discord.SelectOption(label=nazwa, value=nazwa, description=f"{cena} $", emoji="📦"))
+        view = WyborZestawuView(options)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
-class KategorieView(ui.View):
-    """Wybór kategorii produktu (dania, napoje, drinki)"""
-    def __init__(self):
+class WyborProduktuView(ui.View):
+    def __init__(self, options):
         super().__init__(timeout=60)
+        self.add_item(ProduktSelect(options))
+        # Dodajemy przycisk anulowania
+        self.add_item(AnulujButton())
 
-    @ui.button(label="🍔 Dania", style=ButtonStyle.primary, emoji="🍔")
-    async def dania(self, interaction: discord.Interaction, button: ui.Button):
-        await self.pokaz_produkty(interaction, "dania")
-
-    @ui.button(label="🥤 Napoje", style=ButtonStyle.success, emoji="🥤")
-    async def napoje(self, interaction: discord.Interaction, button: ui.Button):
-        await self.pokaz_produkty(interaction, "napoje")
-
-    @ui.button(label="🍸 Drinki", style=ButtonStyle.secondary, emoji="🍸")
-    async def drinki(self, interaction: discord.Interaction, button: ui.Button):
-        await self.pokaz_produkty(interaction, "drinki")
-
-    async def pokaz_produkty(self, interaction: discord.Interaction, kategoria):
-        embed = discord.Embed(title=f"Produkty w kategorii {kategoria}", color=0xFF7600)
-        view = ProduktyView(kategoria)
-        await interaction.response.edit_message(embed=embed, view=view)
-
-class ProduktyView(ui.View):
-    """Lista produktów w danej kategorii"""
-    def __init__(self, kategoria):
-        super().__init__(timeout=60)
-        self.kategoria = kategoria
-        for produkt in MENU[kategoria].keys():
-            self.add_item(ProduktButton(produkt, kategoria))
-
-class ProduktButton(ui.Button):
-    def __init__(self, produkt, kategoria):
-        super().__init__(label=produkt, style=ButtonStyle.secondary)
-        self.produkt = produkt
-        self.kategoria = kategoria
+class ProduktSelect(ui.Select):
+    def __init__(self, options):
+        super().__init__(placeholder="Wybierz produkt...", min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction):
-        cena = MENU[self.kategoria][self.produkt]
-        view = IloscViewProdukt(self.produkt, cena)
-        embed = discord.Embed(title="Wybierz ilość", color=0xFF7600)
-        embed.add_field(name="Produkt", value=self.produkt, inline=True)
+        # Pobieramy wartość: kategoria|nazwa
+        kategoria, nazwa = self.values[0].split('|', 1)
+        cena = MENU[kategoria][nazwa]
+        # Przechodzimy do ustawiania ilości
+        view = IloscViewProdukt(nazwa, cena)
+        embed = discord.Embed(title="Ustaw ilość", color=0xFF7600)
+        embed.add_field(name="Produkt", value=nazwa, inline=True)
         embed.add_field(name="Cena za sztukę", value=f"{cena} $", inline=True)
         await interaction.response.edit_message(embed=embed, view=view)
 
+class WyborZestawuView(ui.View):
+    def __init__(self, options):
+        super().__init__(timeout=60)
+        self.add_item(ZestawSelect(options))
+        self.add_item(AnulujButton())
+
+class ZestawSelect(ui.Select):
+    def __init__(self, options):
+        super().__init__(placeholder="Wybierz zestaw...", min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        nazwa = self.values[0]
+        cena = ZESTAWY[nazwa]
+        view = IloscViewZestaw(nazwa, cena)
+        embed = discord.Embed(title="Ustaw ilość zestawów", color=0xFF7600)
+        embed.add_field(name="Zestaw", value=nazwa, inline=True)
+        embed.add_field(name="Cena za zestaw", value=f"{cena} $", inline=True)
+        await interaction.response.edit_message(embed=embed, view=view)
+
 class IloscViewProdukt(ui.View):
-    """Ustawianie ilości dla pojedynczego produktu"""
     def __init__(self, produkt, cena):
         super().__init__(timeout=60)
         self.produkt = produkt
@@ -149,34 +157,13 @@ class IloscViewProdukt(ui.View):
                 child.label = f"Ilość: {self.ilosc}"
                 break
         total = self.cena * self.ilosc
-        embed = discord.Embed(title="Wybierz ilość", color=0xFF7600)
+        embed = discord.Embed(title="Ustaw ilość", color=0xFF7600)
         embed.add_field(name="Produkt", value=self.produkt, inline=True)
         embed.add_field(name="Cena za sztukę", value=f"{self.cena} $", inline=True)
         embed.add_field(name="Razem", value=f"**{total} $**", inline=False)
         await interaction.response.edit_message(embed=embed, view=self)
 
-class ZestawyWyborView(ui.View):
-    """Wybór zestawu (Beam Mini lub Beam Basic)"""
-    def __init__(self):
-        super().__init__(timeout=60)
-        for nazwa, cena in ZESTAWY.items():
-            self.add_item(ZestawButton(nazwa, cena))
-
-class ZestawButton(ui.Button):
-    def __init__(self, nazwa, cena):
-        super().__init__(label=nazwa, style=ButtonStyle.primary)
-        self.nazwa = nazwa
-        self.cena = cena
-
-    async def callback(self, interaction: discord.Interaction):
-        view = IloscViewZestaw(self.nazwa, self.cena)
-        embed = discord.Embed(title="Wybierz ilość zestawów", color=0xFF7600)
-        embed.add_field(name="Zestaw", value=self.nazwa, inline=True)
-        embed.add_field(name="Cena za zestaw", value=f"{self.cena} $", inline=True)
-        await interaction.response.edit_message(embed=embed, view=view)
-
 class IloscViewZestaw(ui.View):
-    """Ustawianie ilości dla zestawu"""
     def __init__(self, nazwa, cena):
         super().__init__(timeout=60)
         self.nazwa = nazwa
@@ -216,11 +203,18 @@ class IloscViewZestaw(ui.View):
                 child.label = f"Ilość: {self.ilosc}"
                 break
         total = self.cena * self.ilosc
-        embed = discord.Embed(title="Wybierz ilość zestawów", color=0xFF7600)
+        embed = discord.Embed(title="Ustaw ilość zestawów", color=0xFF7600)
         embed.add_field(name="Zestaw", value=self.nazwa, inline=True)
         embed.add_field(name="Cena za zestaw", value=f"{self.cena} $", inline=True)
         embed.add_field(name="Razem", value=f"**{total} $**", inline=False)
         await interaction.response.edit_message(embed=embed, view=self)
+
+class AnulujButton(ui.Button):
+    def __init__(self):
+        super().__init__(label="❌ Anuluj", style=ButtonStyle.secondary)
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.message.delete()
 
 class ZamknijButton(ui.Button):
     def __init__(self):
@@ -240,16 +234,17 @@ async def on_ready():
 
 @bot.tree.command(name="cennik", description="Wyświetla menu Club 777")
 async def cennik(interaction: discord.Interaction):
-    # Embed z menu – stylizacja na obrazek
+    # Embed z menu – czytelny, z dużymi nagłówkami
     embed = discord.Embed(title="**Club 777**", color=0xFF7600)
     
-    dania = "\n".join([f"{p} – **{c} $** 🥪" for p, c in MENU["dania"].items()])
-    napoje = "\n".join([f"{p} – **{c} $** 🥪" for p, c in MENU["napoje"].items()])
-    drinki = "\n".join([f"{p} – **{c} $** 🥪" for p, c in MENU["drinki"].items()])
+    # Formatowanie kategorii
+    dania = "\n".join([f"• {p} – **{c} $**" for p, c in MENU["dania"].items()])
+    napoje = "\n".join([f"• {p} – **{c} $**" for p, c in MENU["napoje"].items()])
+    drinki = "\n".join([f"• {p} – **{c} $**" for p, c in MENU["drinki"].items()])
     
-    embed.add_field(name="🍔 DANIA", value=dania, inline=False)
-    embed.add_field(name="🥤 NAPOJE", value=napoje, inline=False)
-    embed.add_field(name="🍸 DRINKI", value=drinki, inline=False)
+    embed.add_field(name="🍔 **DANIA**", value=dania, inline=False)
+    embed.add_field(name="🥤 **NAPOJE**", value=napoje, inline=False)
+    embed.add_field(name="🍸 **DRINKI**", value=drinki, inline=False)
     embed.set_footer(text="Smacznie, drogo i z klasą!")
     
     view = GlownyView()
