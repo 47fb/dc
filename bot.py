@@ -3,14 +3,18 @@ from discord.ext import commands
 from discord import app_commands, ui, ButtonStyle
 import os
 
-# TOKEN BOTA - już wklejony
-DISCORD_TOKEN = "MTQ3NzA1NjIzMDMxMTg1ODQ3Ng.GUr8CC.cyrZFf5m5P-YQbxQ0RuHW2idwzA-PNPbBP8MH0"
+# Pobierz token ze zmiennych środowiskowych Railway
+DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
+
+if not DISCORD_TOKEN:
+    print('❌ Brak tokenu DISCORD_TOKEN. Ustaw go w Railway Variables!')
+    exit(1)
 
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# Ceny produktów - wszystkie w jednym miejscu
+# Ceny produktów
 CENY = {
     "napoje": {
         "☕ Expresso": 1100,
@@ -82,7 +86,6 @@ class ProduktyView(ui.View):
         self.kategoria = kategoria
         self.parent = parent_view
         
-        # Tworzymy przyciski dla każdego produktu w kategorii
         for produkt in CENY[kategoria].keys():
             self.add_item(ProduktButton(produkt, kategoria, parent_view))
 
@@ -142,7 +145,6 @@ class IloscView(ui.View):
         await interaction.response.edit_message(embed=embed, view=view)
     
     async def update_message(self, interaction: discord.Interaction):
-        # Aktualizujemy przycisk z ilością
         for child in self.children:
             if child.label and "Ilość:" in child.label:
                 child.label = f"Ilość: {self.ilosc}"
@@ -201,17 +203,14 @@ async def on_ready():
 async def cennik(interaction: discord.Interaction):
     embed = discord.Embed(title="🏪 Cennik Kawiarni", color=0xFF7600)
     
-    # Napoje
     napoje_desc = ""
     for napoj, cena in CENY["napoje"].items():
         napoje_desc += f"{napoj}\n**{cena} $**\n\n"
     
-    # Jedzenie
     jedzenie_desc = ""
     for jedzenie, cena in CENY["jedzenie"].items():
         jedzenie_desc += f"{jedzenie}\n**{cena} $**\n\n"
     
-    # Zestawy
     zestawy_desc = ""
     for zestaw, cena in CENY["zestawy"].items():
         zestawy_desc += f"{zestaw}\n**{cena} $**\n\n"
@@ -220,10 +219,8 @@ async def cennik(interaction: discord.Interaction):
     embed.add_field(name="🍰 Jedzenie", value=jedzenie_desc, inline=True)
     embed.add_field(name="📦 Zestawy", value=zestawy_desc, inline=True)
     
-    # Dodajemy przyciski pod cennikiem
     view = GlownyView()
     await interaction.response.send_message(embed=embed, view=view)
 
-# URUCHOMIENIE BOTA Z TOKENEM
+# Uruchomienie bota
 bot.run(DISCORD_TOKEN)
-
