@@ -4,7 +4,7 @@ from discord import app_commands, ui, ButtonStyle
 import os
 
 # TOKEN BOTA - już wklejony
-DISCORD_TOKEN = "MTQ3NzA1NjIzMDMxMTg1ODQ3Ng.G9kYea.9ie7GByexyKuU5BtYbGSztFHCxbBzLS-Sk4sKI"
+DISCORD_TOKEN = "MTQ3NzA1NjIzMDMxMTg1ODQ3Ng.GUr8CC.cyrZFf5m5P-YQbxQ0RuHW2idwzA-PNPbBP8MH0"
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -226,3 +226,4 @@ async def cennik(interaction: discord.Interaction):
 
 # URUCHOMIENIE BOTA Z TOKENEM
 bot.run(DISCORD_TOKEN)
+
