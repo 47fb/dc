@@ -186,7 +186,7 @@ async def menu(interaction: discord.Interaction):
     napoje = "\n".join([f"• {produkt} × {cena} $" for produkt, cena in MENU["napoje"].items()])
     jedzenie = "\n".join([f"• {produkt} × {cena} $" for produkt, cena in MENU["jedzenie"].items()])
 
-    embed.add_field(name=" ☕ Napoje", value=napoje, inline=False)
+    embed.add_field(name=" ☕ #Napoje", value=napoje, inline=False)
     embed.add_field(name=" 🍰 Jedzenie", value=jedzenie, inline=False)
     embed.set_footer(text="Menu najlepszej kawiarni w mieście!!")
 
@@ -197,4 +197,5 @@ async def menu(interaction: discord.Interaction):
         await interaction.response.send_message(embed=embed, view=view)
 
 bot.run(DISCORD_TOKEN)
+
 
