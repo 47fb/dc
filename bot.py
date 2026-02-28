@@ -15,23 +15,23 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 # Menu kawiarni Beam Machine
 MENU = {
     "napoje": {
-        "☕ Expresso": 1100,
-        "☕ Americano": 1200,
-        "☕ Macchiato": 1200,
-        "☕ Latte": 1100,
-        "☕ Cappuccino": 900,
-        "☕ Mocha": 1100
+        " Expresso": 1100,
+        " Americano": 1200,
+        " Macchiato": 1200,
+        " Latte": 1100,
+        " Cappuccino": 900,
+        " Mocha": 1100
     },
     "jedzenie": {
-        "🍰 Szarlotka": 1400,
-        "🍰 Brownie": 1400,
-        "🍰 Sernik": 1300
+        " Szarlotka": 1400,
+        " Brownie": 1400,
+        " Sernik": 1300
     }
 }
 
 ZESTAWY = {
-    "📦 Beam Mini (1 kawa + 1 ciasto)": 1500,
-    "📦 Beam Basic (2 kawy + 2 ciasta)": 5000
+    " Beam Mini (1 kawa + 1 ciasto)": 1500,
+    " Beam Basic (2 kawy + 2 ciasta)": 5000
 }
 
 # Główny select do wyboru kalkulatora
@@ -178,8 +178,8 @@ async def cennik(interaction: discord.Interaction):
     for produkt, cena in MENU["jedzenie"].items():
         jedzenie += f"• {produkt} ``×`` **{cena} $**\n"
 
-    embed.add_field(name="# ☕ × Napoje", value=napoje, inline=False)
-    embed.add_field(name="# 🍰 × Jedzenie", value=jedzenie, inline=False)
+    embed.add_field(name="☕ # × Napoje", value=napoje, inline=False)
+    embed.add_field(name="🍰 # × Jedzenie", value=jedzenie, inline=False)
     embed.set_footer(text="Menu najlepszej kawiarni w mieście!!")
 
     view = MainView()
@@ -193,3 +193,4 @@ async def cennik(interaction: discord.Interaction):
         await interaction.response.send_message(embed=embed, view=view)
 
 bot.run(DISCORD_TOKEN)
+
