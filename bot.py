@@ -39,9 +39,9 @@ class IloscModal(ui.Modal, title="Kalkulator"):
         try:
             total = int(self.ilosc.value) * self.cena
             embed = discord.Embed(title="🛒 Wynik kalkulacji", color=0xFF7600)
-            embed.add_field(name="Pozycja", value=f"**{self.nazwa}**", inline=True)
+            embed.add_field(name="Pozycja", value=f"** {self.nazwa}**", inline=True)
             embed.add_field(name="Ilość", value=f"**{self.ilosc.value}**", inline=True)
-            embed.add_field(name="Suma", value=f"# {total} $", inline=False)
+            embed.add_field(name="Suma", value=f"`` {total} $``", inline=False)
             await interaction.response.send_message(embed=embed, ephemeral=True)
         except ValueError:
             await interaction.response.send_message("❌ Podaj poprawną liczbę!", ephemeral=True)
@@ -93,16 +93,16 @@ async def menu(interaction: discord.Interaction):
     embed = discord.Embed(
         title="**Bean Machine – Menu**",
         color=0xFF7600,
-        description="Najlepsza kawiarnia w mieście!!"
+        description="`**`Najlepsza kawiarnia w mieście!!`**"
     )
 
     napoje = "\n".join([f"• **{p}** × {c} $" for p, c in MENU["napoje"].items()])
     jedzenie = "\n".join([f"• **{p}** × {c} $" for p, c in MENU["jedzenie"].items()])
     zestawy = "\n".join([f"• **{p}** × {c} $" for p, c in ZESTAWY.items()])
 
-    embed.add_field(name="# ☕ Napoje", value=napoje, inline=False)
-    embed.add_field(name="# 🍰 Jedzenie", value=jedzenie, inline=False)
-    embed.add_field(name="# 📦 Zestawy", value=zestawy, inline=False)
+    embed.add_field(name="*** ☕ Napoje***", value=napoje, inline=False)
+    embed.add_field(name="*** 🍰 Jedzenie***", value=jedzenie, inline=False)
+    embed.add_field(name="*** 📦 Zestawy***", value=zestawy, inline=False)
     embed.set_footer(text="Smacznie i z klasą!")
 
     try:
@@ -113,3 +113,4 @@ async def menu(interaction: discord.Interaction):
         await interaction.response.send_message(embed=embed, view=MainView())
 
 bot.run(DISCORD_TOKEN)
+
