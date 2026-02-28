@@ -93,7 +93,7 @@ async def menu(interaction: discord.Interaction):
     embed = discord.Embed(
         title="**Bean Machine – Menu**",
         color=0xFF7600,
-        description="`**`Najlepsza kawiarnia w mieście!!!`**"
+        description="**`Najlepsza kawiarnia w mieście!!!`**"
     )
 
     napoje = "\n".join([f"• **{p}** × {c} $" for p, c in MENU["napoje"].items()])
@@ -113,5 +113,6 @@ async def menu(interaction: discord.Interaction):
         await interaction.response.send_message(embed=embed, view=MainView())
 
 bot.run(DISCORD_TOKEN)
+
 
 
