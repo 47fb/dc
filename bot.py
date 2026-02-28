@@ -184,29 +184,47 @@ async def plus_cmd(interaction: discord.Interaction, uzytkownik: discord.Member,
     else:
         await interaction.response.send_message(embed=embed)
 
-# 5. MINUS (Z GRAFIKĄ MINUS)
+# 5. MINUS (Z GRAFIKĄ ORAZ POZIOMEM 1/3, 2/3, DEGRADACJA)
 @bot.tree.command(name="minus", description="Daje minusa (Kierownik+)")
-@app_commands.choices(rodzaj=[app_commands.Choice(name="1 Minus", value=1), app_commands.Choice(name="2 Minus", value=2), app_commands.Choice(name="3 Minus (Degradacja)", value=3)])
+@app_commands.choices(rodzaj=[
+    app_commands.Choice(name="1 Minus (1/3)", value=1), 
+    app_commands.Choice(name="2 Minus (2/3)", value=2), 
+    app_commands.Choice(name="3 Minus (Degradacja)", value=3)
+])
 async def minus_cmd(interaction: discord.Interaction, uzytkownik: discord.Member, powod: str, rodzaj: app_commands.Choice[int]):
-    if interaction.channel_id != CH_MINUSY: return await interaction.response.send_message(f"❌ Komenda tylko na <#{CH_MINUSY}>!", ephemeral=True)
-    req = interaction.guild.get_role(REQUIRED_ROLE_ID)
-    if not any(r.position >= req.position for r in interaction.user.roles): return await interaction.response.send_message("❌ Brak uprawnień!", ephemeral=True)
+    if interaction.channel_id != CH_MINUSY: 
+        return await interaction.response.send_message(f"❌ Komenda tylko na <#{CH_MINUSY}>!", ephemeral=True)
     
+    req = interaction.guild.get_role(REQUIRED_ROLE_ID)
+    if not any(r.position >= req.position for r in interaction.user.roles): 
+        return await interaction.response.send_message("❌ Brak uprawnień!", ephemeral=True)
+    
+    # Usuwanie starych rang minusów przed nadaniem nowej
     stare = [interaction.guild.get_role(rid) for rid in ROLE_MINUSY.values() if interaction.guild.get_role(rid)]
     await uzytkownik.remove_roles(*[r for r in stare if r in uzytkownik.roles])
     
+    status_text = ""
     degradacja = False
-    if rodzaj.value == 3:
+
+    if rodzaj.value == 1:
+        status_text = "🔴 **Poziom kar: 1/3**"
+        await uzytkownik.add_roles(interaction.guild.get_role(ROLE_MINUSY[1]))
+    elif rodzaj.value == 2:
+        status_text = "🔴 **Poziom kar: 2/3**"
+        await uzytkownik.add_roles(interaction.guild.get_role(ROLE_MINUSY[2]))
+    elif rodzaj.value == 3:
+        status_text = "📉 **STATUS: DEGRADACJA**"
         for s, n in DEGRADACJA_MAP.items():
             if s in [r.id for r in uzytkownik.roles]:
-                await uzytkownik.remove_roles(interaction.guild.get_role(s)); await uzytkownik.add_roles(interaction.guild.get_role(n))
-                degradacja = True; break
-    else: await uzytkownik.add_roles(interaction.guild.get_role(ROLE_MINUSY[rodzaj.value]))
-    
+                await uzytkownik.remove_roles(interaction.guild.get_role(s))
+                await uzytkownik.add_roles(interaction.guild.get_role(n))
+                degradacja = True
+                break
+
     embed = discord.Embed(title="⚠️ Przyznano Minusa", color=0xE74C3C)
-    embed.add_field(name="Dla:", value=uzytkownik.mention)
-    msg_powod = powod + ("\n📉 **DEGRADACJA!**" if degradacja else "")
-    embed.add_field(name="Powód:", value=msg_powod)
+    embed.add_field(name="Dla:", value=uzytkownik.mention, inline=True)
+    embed.add_field(name="Status:", value=status_text, inline=True)
+    embed.add_field(name="Powód:", value=powod, inline=False)
     
     if os.path.exists("minus.png"):
         file = discord.File("minus.png", filename="minus.png")
@@ -283,4 +301,5 @@ async def embed_cmd(interaction: discord.Interaction, tytul: str, tresc: str, pl
     await interaction.response.send_message("✅ Wysłano!", ephemeral=True)
 
 bot.run(DISCORD_TOKEN)
+
 
