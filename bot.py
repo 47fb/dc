@@ -148,7 +148,7 @@ async def plakietka_cmd(interaction: discord.Interaction):
     embed.add_field(name="Kod do gry:", value=f"```{kod}```")
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-# 4. PLUS
+# 4. PLUS (Z GRAFIKAMI PLUS/AWANS)
 @bot.tree.command(name="plus", description="Daje plusa (Kierownik+)")
 @app_commands.choices(rodzaj=[app_commands.Choice(name="1 Plus", value=1), app_commands.Choice(name="2 Plus", value=2), app_commands.Choice(name="3 Plus (Awans)", value=3)])
 async def plus_cmd(interaction: discord.Interaction, uzytkownik: discord.Member, powod: str, rodzaj: app_commands.Choice[int]):
@@ -159,18 +159,32 @@ async def plus_cmd(interaction: discord.Interaction, uzytkownik: discord.Member,
     stare = [interaction.guild.get_role(rid) for rid in ROLE_PLUSY.values() if interaction.guild.get_role(rid)]
     await uzytkownik.remove_roles(*[r for r in stare if r in uzytkownik.roles])
     
-    notka = ""
+    awans = False
+    grafika = "plus.png"
+    
     if rodzaj.value == 3:
         for s, n in AWANS_MAP.items():
             if s in [r.id for r in uzytkownik.roles]:
                 await uzytkownik.remove_roles(interaction.guild.get_role(s)); await uzytkownik.add_roles(interaction.guild.get_role(n))
-                notka = f"\n🎊 **AWANS!**"; break
-    else: await uzytkownik.add_roles(interaction.guild.get_role(ROLE_PLUSY[rodzaj.value]))
+                awans = True
+                grafika = "awans.png"
+                break
+    else: 
+        await uzytkownik.add_roles(interaction.guild.get_role(ROLE_PLUSY[rodzaj.value]))
     
-    embed = discord.Embed(title="🌟 Przyznano Plusa", color=0x2ECC71); embed.add_field(name="Dla:", value=uzytkownik.mention).add_field(name="Powód:", value=f"{powod}{notka}")
-    await interaction.response.send_message(embed=embed)
+    embed = discord.Embed(title="🌟 Przyznano Plusa", color=0x2ECC71)
+    embed.add_field(name="Dla:", value=uzytkownik.mention)
+    msg_powod = powod + ("\n🎊 **AWANS!**" if awans else "")
+    embed.add_field(name="Powód:", value=msg_powod)
+    
+    if os.path.exists(grafika):
+        file = discord.File(grafika, filename=grafika)
+        embed.set_image(url=f"attachment://{grafika}")
+        await interaction.response.send_message(file=file, embed=embed)
+    else:
+        await interaction.response.send_message(embed=embed)
 
-# 5. MINUS
+# 5. MINUS (Z GRAFIKĄ MINUS)
 @bot.tree.command(name="minus", description="Daje minusa (Kierownik+)")
 @app_commands.choices(rodzaj=[app_commands.Choice(name="1 Minus", value=1), app_commands.Choice(name="2 Minus", value=2), app_commands.Choice(name="3 Minus (Degradacja)", value=3)])
 async def minus_cmd(interaction: discord.Interaction, uzytkownik: discord.Member, powod: str, rodzaj: app_commands.Choice[int]):
@@ -181,18 +195,27 @@ async def minus_cmd(interaction: discord.Interaction, uzytkownik: discord.Member
     stare = [interaction.guild.get_role(rid) for rid in ROLE_MINUSY.values() if interaction.guild.get_role(rid)]
     await uzytkownik.remove_roles(*[r for r in stare if r in uzytkownik.roles])
     
-    notka = ""
+    degradacja = False
     if rodzaj.value == 3:
         for s, n in DEGRADACJA_MAP.items():
             if s in [r.id for r in uzytkownik.roles]:
                 await uzytkownik.remove_roles(interaction.guild.get_role(s)); await uzytkownik.add_roles(interaction.guild.get_role(n))
-                notka = f"\n📉 **DEGRADACJA!**"; break
+                degradacja = True; break
     else: await uzytkownik.add_roles(interaction.guild.get_role(ROLE_MINUSY[rodzaj.value]))
     
-    embed = discord.Embed(title="⚠️ Przyznano Minusa", color=0xE74C3C); embed.add_field(name="Dla:", value=uzytkownik.mention).add_field(name="Powód:", value=f"{powod}{notka}")
-    await interaction.response.send_message(embed=embed)
+    embed = discord.Embed(title="⚠️ Przyznano Minusa", color=0xE74C3C)
+    embed.add_field(name="Dla:", value=uzytkownik.mention)
+    msg_powod = powod + ("\n📉 **DEGRADACJA!**" if degradacja else "")
+    embed.add_field(name="Powód:", value=msg_powod)
+    
+    if os.path.exists("minus.png"):
+        file = discord.File("minus.png", filename="minus.png")
+        embed.set_image(url="attachment://minus.png")
+        await interaction.response.send_message(file=file, embed=embed)
+    else:
+        await interaction.response.send_message(embed=embed)
 
-# 6. URLOP
+# 6. URLOP (Z GRAFIKĄ URLOP)
 @bot.tree.command(name="urlop", description="Zgłoś urlop (DD.MM)")
 async def urlop_cmd(interaction: discord.Interaction, od_kiedy: str, do_kiedy: str, powod: str):
     if interaction.channel_id != CH_URLOPY: return await interaction.response.send_message(f"❌ Komenda tylko na <#{CH_URLOPY}>!", ephemeral=True)
@@ -205,20 +228,33 @@ async def urlop_cmd(interaction: discord.Interaction, od_kiedy: str, do_kiedy: s
     embed.add_field(name="Pracownik:", value=interaction.user.mention, inline=False)
     embed.add_field(name="Termin:", value=f"`{od_kiedy}` - `{do_kiedy}`", inline=False)
     embed.add_field(name="Powód:", value=powod, inline=False)
-    await interaction.response.send_message(embed=embed)
+    
+    if os.path.exists("urlop.png"):
+        file = discord.File("urlop.png", filename="urlop.png")
+        embed.set_image(url="attachment://urlop.png")
+        await interaction.response.send_message(file=file, embed=embed)
+    else:
+        await interaction.response.send_message(embed=embed)
 
-# 7. ZWOLNIJ
+# 7. ZWOLNIJ (Z GRAFIKĄ ZWOLNIJ)
 @bot.tree.command(name="zwolnij", description="Zwalnia pracownika (Kierownik+)")
 async def zwolnij_cmd(interaction: discord.Interaction, uzytkownik: discord.Member, powod: str):
     req = interaction.guild.get_role(REQUIRED_ROLE_ID)
     if not any(r.position >= req.position for r in interaction.user.roles): return await interaction.response.send_message("❌ Brak uprawnień!", ephemeral=True)
     wszystkie = list(PLAKIETKI.keys()) + [GLOWNA_RANGA_PRAC_ID] + list(ROLE_PLUSY.values())
     await uzytkownik.remove_roles(*[r for r in [interaction.guild.get_role(rid) for rid in wszystkie] if r and r in uzytkownik.roles])
+    
     embed = discord.Embed(title="🚫 Zwolnienie", color=0x000000)
     embed.add_field(name="Pracownik:", value=uzytkownik.mention).add_field(name="Powód:", value=powod)
-    await interaction.response.send_message(embed=embed)
+    
+    if os.path.exists("zwolnij.png"):
+        file = discord.File("zwolnij.png", filename="zwolnij.png")
+        embed.set_image(url="attachment://zwolnij.png")
+        await interaction.response.send_message(file=file, embed=embed)
+    else:
+        await interaction.response.send_message(embed=embed)
 
-# 8. EMBED (Z WYBIERANIEM PLIKU Z KOMPUTERA)
+# 8. EMBED (BEZ ZMIAN W GRAFIKACH LOKALNYCH)
 @bot.tree.command(name="embed", description="Ogłoszenie (Możesz wgrać zdjęcie lub podać link)")
 @app_commands.describe(plik="Wybierz zdjęcie z dysku", zdjecie_url="Lub wklej link do zdjęcia", tresc="Treść (użyj \\n dla nowej linii)")
 async def embed_cmd(interaction: discord.Interaction, tytul: str, tresc: str, plik: discord.Attachment = None, zdjecie_url: str = None, kolor: str = "orange"):
