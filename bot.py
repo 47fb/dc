@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands, ui
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # --- KONFIGURACJA ID ---
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
@@ -30,7 +30,15 @@ DEGRADACJA_MAP = {
 ROLE_PLUSY = {1: 1475172069653348423, 2: 1475172072685834354, 3: 1475172075365863688}
 ROLE_MINUSY = {1: 1475172078435959086, 2: 1475172080483045469, 3: 1475172083100291276}
 
+# PLAKIETKI (Ochrona na górze by miała priorytet przy 2 rangach)
 PLAKIETKI = {
+    # Ochrona
+    1475088765931487252: "/opis ~HC_13~ Bean Machine ~n~ ~s~ {dane} ~n~ ~HC_3~ [Szef Ochrony]",
+    1475213940584878261: "/opis ~HC_13~ Bean Machine ~n~ ~s~ {dane} ~n~ ~HC_3~ [Zastępca Szefa Ochrony]",
+    1475137663739891793: "/opis ~HC_13~ Bean Machine ~n~ ~s~ {dane} ~n~ ~HC_3~ [S Ochroniarz]",
+    1475088876749197505: "/opis ~HC_13~ Bean Machine ~n~ ~s~ {dane} ~n~ ~HC_3~ [Ochrona]",
+    1475137600523075664: "/opis ~HC_13~ Bean Machine ~n~ ~s~ {dane} ~n~ ~HC_3~ [M Ochroniarz]",
+    # Zarząd i Baristyści
     1474774583294038106: "/opis ~HC_13~ ☕Bean Machine☕ ~n~ ~s~ {dane} ~n~ ~HC_2~ [Właściciel]",
     1309969414099304450: "/opis ~HC_13~ ☕Bean Machine☕ ~n~ ~s~ {dane} ~n~ ~HC_90~ [Szef]",
     1474774495406325831: "/opis ~HC_13~ ☕Bean Machine☕ ~n~ ~s~ {dane} ~n~ ~HC_43~ [Zastępca Szefa]",
@@ -44,6 +52,7 @@ PLAKIETKI = {
 
 # --- BAZA DANYCH ---
 DANE_FILE = "imiona_rp.json"
+GODZINKI_FILE = "godzinki.json"
 
 def wczytaj_dane():
     if not os.path.exists(DANE_FILE): return {}
@@ -55,6 +64,18 @@ def wczytaj_dane():
 
 def zapisz_dane(dane):
     with open(DANE_FILE, "w", encoding="utf-8") as f:
+        json.dump(dane, f, indent=4, ensure_ascii=False)
+
+def wczytaj_godzinki():
+    if not os.path.exists(GODZINKI_FILE): return {}
+    try:
+        with open(GODZINKI_FILE, "r", encoding="utf-8") as f:
+            content = f.read()
+            return json.loads(content) if content else {}
+    except: return {}
+
+def zapisz_godzinki(dane):
+    with open(GODZINKI_FILE, "w", encoding="utf-8") as f:
         json.dump(dane, f, indent=4, ensure_ascii=False)
 
 # --- BOT SETUP ---
@@ -109,7 +130,7 @@ class MainView(ui.View):
 @bot.event
 async def on_ready():
     await bot.tree.sync()
-    print(f"✅ Bot {bot.user} online! Wszystkie 8 komend aktywnych.")
+    print(f"✅ Bot {bot.user} online! Wszystkie komendy aktywne.")
 
 # 1. MENU
 @bot.tree.command(name="menu", description="Karta dań i kalkulator")
@@ -148,7 +169,7 @@ async def plakietka_cmd(interaction: discord.Interaction):
     embed.add_field(name="Kod do gry:", value=f"```{kod}```")
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-# 4. PLUS (Z GRAFIKAMI PLUS/AWANS)
+# 4. PLUS
 @bot.tree.command(name="plus", description="Daje plusa (Kierownik+)")
 @app_commands.choices(rodzaj=[app_commands.Choice(name="1 Plus", value=1), app_commands.Choice(name="2 Plus", value=2), app_commands.Choice(name="3 Plus (Awans)", value=3)])
 async def plus_cmd(interaction: discord.Interaction, uzytkownik: discord.Member, powod: str, rodzaj: app_commands.Choice[int]):
@@ -156,8 +177,10 @@ async def plus_cmd(interaction: discord.Interaction, uzytkownik: discord.Member,
     req = interaction.guild.get_role(REQUIRED_ROLE_ID)
     if not any(r.position >= req.position for r in interaction.user.roles): return await interaction.response.send_message("❌ Brak uprawnień!", ephemeral=True)
     
-    stare = [interaction.guild.get_role(rid) for rid in ROLE_PLUSY.values() if interaction.guild.get_role(rid)]
-    await uzytkownik.remove_roles(*[r for r in stare if r in uzytkownik.roles])
+    # Naprawa usuwania ról (tylko te, które użytkownik faktycznie ma)
+    stare = [r for r in uzytkownik.roles if r.id in ROLE_PLUSY.values()]
+    if stare:
+        await uzytkownik.remove_roles(*stare)
     
     awans = False
     grafika = "plus.png"
@@ -165,7 +188,8 @@ async def plus_cmd(interaction: discord.Interaction, uzytkownik: discord.Member,
     if rodzaj.value == 3:
         for s, n in AWANS_MAP.items():
             if s in [r.id for r in uzytkownik.roles]:
-                await uzytkownik.remove_roles(interaction.guild.get_role(s)); await uzytkownik.add_roles(interaction.guild.get_role(n))
+                await uzytkownik.remove_roles(interaction.guild.get_role(s))
+                await uzytkownik.add_roles(interaction.guild.get_role(n))
                 awans = True
                 grafika = "awans.png"
                 break
@@ -184,7 +208,7 @@ async def plus_cmd(interaction: discord.Interaction, uzytkownik: discord.Member,
     else:
         await interaction.response.send_message(embed=embed)
 
-# 5. MINUS (Z GRAFIKĄ ORAZ POZIOMEM 1/3, 2/3, DEGRADACJA)
+# 5. MINUS
 @bot.tree.command(name="minus", description="Daje minusa (Kierownik+)")
 @app_commands.choices(rodzaj=[
     app_commands.Choice(name="1 Minus (1/3)", value=1), 
@@ -199,9 +223,10 @@ async def minus_cmd(interaction: discord.Interaction, uzytkownik: discord.Member
     if not any(r.position >= req.position for r in interaction.user.roles): 
         return await interaction.response.send_message("❌ Brak uprawnień!", ephemeral=True)
     
-    # Usuwanie starych rang minusów przed nadaniem nowej
-    stare = [interaction.guild.get_role(rid) for rid in ROLE_MINUSY.values() if interaction.guild.get_role(rid)]
-    await uzytkownik.remove_roles(*[r for r in stare if r in uzytkownik.roles])
+    # Naprawa usuwania ról (tylko te, które użytkownik faktycznie ma)
+    stare = [r for r in uzytkownik.roles if r.id in ROLE_MINUSY.values()]
+    if stare:
+        await uzytkownik.remove_roles(*stare)
     
     status_text = ""
     degradacja = False
@@ -233,7 +258,7 @@ async def minus_cmd(interaction: discord.Interaction, uzytkownik: discord.Member
     else:
         await interaction.response.send_message(embed=embed)
 
-# 6. URLOP (Z GRAFIKĄ URLOP)
+# 6. URLOP
 @bot.tree.command(name="urlop", description="Zgłoś urlop (DD.MM)")
 async def urlop_cmd(interaction: discord.Interaction, od_kiedy: str, do_kiedy: str, powod: str):
     if interaction.channel_id != CH_URLOPY: return await interaction.response.send_message(f"❌ Komenda tylko na <#{CH_URLOPY}>!", ephemeral=True)
@@ -254,7 +279,7 @@ async def urlop_cmd(interaction: discord.Interaction, od_kiedy: str, do_kiedy: s
     else:
         await interaction.response.send_message(embed=embed)
 
-# 7. ZWOLNIJ (Z GRAFIKĄ ZWOLNIJ)
+# 7. ZWOLNIJ
 @bot.tree.command(name="zwolnij", description="Zwalnia pracownika (Kierownik+)")
 async def zwolnij_cmd(interaction: discord.Interaction, uzytkownik: discord.Member, powod: str):
     req = interaction.guild.get_role(REQUIRED_ROLE_ID)
@@ -272,7 +297,7 @@ async def zwolnij_cmd(interaction: discord.Interaction, uzytkownik: discord.Memb
     else:
         await interaction.response.send_message(embed=embed)
 
-# 8. EMBED (BEZ ZMIAN W GRAFIKACH LOKALNYCH)
+# 8. EMBED
 @bot.tree.command(name="embed", description="Ogłoszenie (Możesz wgrać zdjęcie lub podać link)")
 @app_commands.describe(plik="Wybierz zdjęcie z dysku", zdjecie_url="Lub wklej link do zdjęcia", tresc="Treść (użyj \\n dla nowej linii)")
 async def embed_cmd(interaction: discord.Interaction, tytul: str, tresc: str, plik: discord.Attachment = None, zdjecie_url: str = None, kolor: str = "orange"):
@@ -300,6 +325,41 @@ async def embed_cmd(interaction: discord.Interaction, tytul: str, tresc: str, pl
 
     await interaction.response.send_message("✅ Wysłano!", ephemeral=True)
 
+# 9. GODZINKI (NOWE!)
+@bot.tree.command(name="godzinki", description="Zapisz swoje przepracowane godziny (format HH:MM)")
+@app_commands.describe(od_kiedy="Godzina rozpoczęcia, np. 14:00", do_kiedy="Godzina zakończenia, np. 18:30")
+async def godzinki_cmd(interaction: discord.Interaction, od_kiedy: str, do_kiedy: str):
+    try:
+        t1 = datetime.strptime(od_kiedy, "%H:%M")
+        t2 = datetime.strptime(do_kiedy, "%H:%M")
+    except ValueError:
+        return await interaction.response.send_message("❌ Zły format! Użyj HH:MM (np. 14:00, 18:30).", ephemeral=True)
+    
+    # Obliczanie różnicy czasu
+    delta = t2 - t1
+    if delta.total_seconds() < 0:
+        # Jeśli ktoś zaczął o 22:00 a skończył o 02:00 (przeszedł przez północ)
+        delta = timedelta(days=1) + delta
+        
+    godziny = delta.total_seconds() / 3600.0
+    
+    # Zapisywanie do bazy
+    user_id = str(interaction.user.id)
+    dane = wczytaj_godzinki()
+    aktualne = dane.get(user_id, 0.0)
+    nowa_suma = aktualne + godziny
+    dane[user_id] = nowa_suma
+    zapisz_godzinki(dane)
+    
+    # Tworzenie ładnego embeda
+    embed = discord.Embed(title="⏰ Rejestr Godzin Pracy", color=0xF1C40F)
+    embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+    embed.set_thumbnail(url=interaction.user.display_avatar.url)
+    
+    embed.add_field(name="🕒 Dzisiejsza zmiana:", value=f"`{od_kiedy}` ➔ `{do_kiedy}`\n(Przepracowano: **{round(godziny, 2)}h**)", inline=False)
+    embed.add_field(name="📊 Twoja suma godzin:", value=f"**{round(nowa_suma, 2)}h**", inline=False)
+    embed.set_footer(text="Bean Machine • System Czasu Pracy")
+    
+    await interaction.response.send_message(embed=embed)
+
 bot.run(DISCORD_TOKEN)
-
-
