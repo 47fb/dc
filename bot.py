@@ -12,6 +12,19 @@ CH_PLUSY = 1309969416565424156
 CH_MINUSY = 1309969416565424157
 GLOWNA_RANGA_PRAC_ID = 1474903301567938641
 
+CH_GODZINKI_ID = 1477334457533993214
+CH_TOPKA_ID = 1477334763194024110
+
+# RANGI
+KIEROWNIK_ID = 1309969414099304448
+ZARZAD_IDS = [
+    1474774583294038106, # Właściciel
+    1309969414099304450, # Szef
+    1474774495406325831, # Zastępca Szefa
+    1309969414099304449  # Menadżer
+]
+ZARZAD_I_KIEROWNIK = ZARZAD_IDS + [KIEROWNIK_ID]
+
 # CENNIK
 PRODUKTY = {
     "☕ Espresso": 1100, "☕ Americano": 1200, "☕ Macchiato": 1200, 
@@ -20,7 +33,7 @@ PRODUKTY = {
 }
 ZESTAWY = {"📦 Bean Mini (1+1)": 1500, "📦 Bean Basic (2+2)": 5000}
 
-# MAPOWANIA RANG
+# MAPOWANIA
 AWANS_MAP = {1309969414023811168: 1309969414023811169, 1309969414023811169: 1309969414023811170, 1309969414023811170: 1309969414023811171}
 DEGRADACJA_MAP = {1309969414023811171: 1309969414023811170, 1309969414023811170: 1309969414023811169, 1309969414023811169: 1309969414023811168}
 ROLE_PLUSY = {1: 1475172069653348423, 2: 1475172072685834354}
@@ -83,7 +96,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 @bot.event
 async def on_ready():
     await bot.tree.sync()
-    print(f"✅ Bot {bot.user} gotowy!")
+    print(f"✅ Bot {bot.user} online! Gotowy do pracy.")
 
 @bot.event
 async def on_member_join(member):
@@ -91,8 +104,7 @@ async def on_member_join(member):
     if ch:
         emb = discord.Embed(description=f"☕ » Witaj {member.mention} na serwerze **Bean Machine**!", color=0xFF7600)
         if os.path.exists("hej.png"):
-            f = discord.File("hej.png", filename="hej.png")
-            emb.set_image(url="attachment://hej.png")
+            f = discord.File("hej.png", filename="hej.png"); emb.set_image(url="attachment://hej.png")
             await ch.send(file=f, embed=emb)
         else: await ch.send(embed=emb)
 
@@ -100,18 +112,17 @@ async def on_member_join(member):
 
 @bot.tree.command(name="godzinki", description="Zapisz czas pracy")
 async def godzinki_cmd(it: discord.Interaction, od_kiedy: str, do_kiedy: str):
+    if it.channel_id != CH_GODZINKI_ID:
+        return await it.response.send_message(f"❌ Komenda dostępna tylko na <#{CH_GODZINKI_ID}>!", ephemeral=True)
     try:
-        t1_str, t2_str = od_kiedy.replace(".", ":"), do_kiedy.replace(".", ":")
-        t1, t2 = datetime.strptime(t1_str, "%H:%M"), datetime.strptime(t2_str, "%H:%M")
+        t1, t2 = datetime.strptime(od_kiedy.replace(".", ":"), "%H:%M"), datetime.strptime(do_kiedy.replace(".", ":"), "%H:%M")
         delta = (t2 - t1).total_seconds() / 3600.0
         if delta < 0: delta += 24
         d = load_db("godzinki.json"); uid = str(it.user.id)
         suma = d.get(uid, 0.0) + delta; d[uid] = suma; save_db("godzinki.json", d)
-        
         emb = discord.Embed(title="⏰ Raport Pracy", color=0xFF7600, timestamp=datetime.now())
         emb.set_author(name=it.user.display_name, icon_url=it.user.display_avatar.url)
-        emb.set_thumbnail(url=it.user.display_avatar.url)
-        emb.add_field(name="⏰ Sesja", value=f"Od: `{t1_str}` Do: `{t2_str}`", inline=True)
+        emb.add_field(name="⏰ Sesja", value=f"Od: `{od_kiedy}` Do: `{do_kiedy}`", inline=True)
         emb.add_field(name="📊 Wynik", value=f"**+{round(delta, 2)}h**", inline=True)
         emb.add_field(name="🏢 Łącznie", value=f"**{round(suma, 2)}h**", inline=False)
         await it.response.send_message(embed=emb)
@@ -119,28 +130,45 @@ async def godzinki_cmd(it: discord.Interaction, od_kiedy: str, do_kiedy: str):
 
 @bot.tree.command(name="topka", description="Ranking TOP 10")
 async def topka_cmd(it: discord.Interaction):
+    if it.channel_id != CH_TOPKA_ID:
+        return await it.response.send_message(f"❌ Komenda dostępna tylko na <#{CH_TOPKA_ID}>!", ephemeral=True)
     d = load_db("godzinki.json")
     top = sorted(d.items(), key=lambda x: x[1], reverse=True)[:10]
     txt = "\n".join([f"**{i+1}.** <@{u}> — `{round(g,2)}h`" for i, (u, g) in enumerate(top)])
     await it.response.send_message(embed=discord.Embed(title="🏆 Ranking Godzin", description=txt or "Brak danych", color=0xF1C40F))
+
+@bot.tree.command(name="zwolnij", description="Zwalnia pracownika (Zarząd i Kierownik)")
+async def zwolnij_cmd(it: discord.Interaction, uzytkownik: discord.Member, powod: str):
+    if not any(role.id in ZARZAD_I_KIEROWNIK for role in it.user.roles):
+        return await it.response.send_message("❌ Brak uprawnień! (Wymagany Kierownik+)", ephemeral=True)
+    wszystkie = list(PLAKIETKI.keys()) + [GLOWNA_RANGA_PRAC_ID] + list(ROLE_PLUSY.values()) + list(ROLE_MINUSY.values())
+    await uzytkownik.remove_roles(*[r for r in [it.guild.get_role(rid) for rid in wszystkie] if r and r in uzytkownik.roles])
+    await it.response.send_message(embed=discord.Embed(title="🚫 Zwolnienie", description=f"Pracownik: {uzytkownik.mention}\nPowód: {powod}", color=0x000000))
+
+@bot.tree.command(name="usung", description="Usuń/Edytuj godziny (Tylko Zarząd)")
+async def usung_cmd(it: discord.Interaction, uzytkownik: discord.Member, ilosc: str):
+    if not any(role.id in ZARZAD_IDS for role in it.user.roles):
+        return await it.response.send_message("❌ Ta komenda jest tylko dla Zarządu!", ephemeral=True)
+    d = load_db("godzinki.json"); uid = str(uzytkownik.id)
+    if ilosc.lower() == "wszystkie": d[uid] = 0.0
+    elif "h" in ilosc: d[uid] = max(0, d.get(uid,0) - float(ilosc.replace("h","")))
+    save_db("godzinki.json", d)
+    await it.response.send_message(f"✅ Zaktualizowano godziny.", ephemeral=True)
 
 @bot.tree.command(name="plus", description="Nadaj plusa")
 async def plus_cmd(it: discord.Interaction, uzytkownik: discord.Member, powod: str):
     if it.channel_id != CH_PLUSY: return await it.response.send_message("Zły kanał!", ephemeral=True)
     r1, r2 = it.guild.get_role(ROLE_PLUSY[1]), it.guild.get_role(ROLE_PLUSY[2])
     status, img = "🟢 1/2 Plusy", "plus.png"
-    
     if r2 in uzytkownik.roles:
-        await uzytkownik.remove_roles(r2); status = "🎉 **AWANS!**"; img = "awans.png"
+        await uzytkownik.remove_roles(r2); status = "🎉 AWANS"; img = "awans.png"
         for s, n in AWANS_MAP.items():
             if it.guild.get_role(s) in uzytkownik.roles:
                 await uzytkownik.remove_roles(it.guild.get_role(s)); await uzytkownik.add_roles(it.guild.get_role(n)); break
     elif r1 in uzytkownik.roles:
         await uzytkownik.remove_roles(r1); await uzytkownik.add_roles(r2); status = "🟢 2/2 Plusy"
     else: await uzytkownik.add_roles(r1)
-    
-    emb = discord.Embed(title="🌟 Plus", description=f"Pracownik: {uzytkownik.mention}\nStatus: {status}\nPowód: {powod}", color=0x2ECC71)
-    emb.set_footer(text=f"Nadano przez: {it.user.display_name}", icon_url=it.user.display_avatar.url)
+    emb = discord.Embed(title="🌟 Plus", description=f"{uzytkownik.mention}\nStatus: {status}\nPowód: {powod}", color=0x2ECC71)
     if os.path.exists(img):
         f = discord.File(img, filename=img); emb.set_image(url=f"attachment://{img}")
         await it.response.send_message(file=f, embed=emb)
@@ -151,24 +179,29 @@ async def minus_cmd(it: discord.Interaction, uzytkownik: discord.Member, powod: 
     if it.channel_id != CH_MINUSY: return await it.response.send_message("Zły kanał!", ephemeral=True)
     m1, m2 = it.guild.get_role(ROLE_MINUSY[1]), it.guild.get_role(ROLE_MINUSY[2])
     status, img = "🔴 1/3 Minusy", "minus.png"
-    
     if m2 in uzytkownik.roles:
-        await uzytkownik.remove_roles(m2); status = "📉 **DEGRADACJA!**"
+        await uzytkownik.remove_roles(m2); status = "📉 DEGRADACJA"
         for s, n in DEGRADACJA_MAP.items():
             if it.guild.get_role(s) in uzytkownik.roles:
                 await uzytkownik.remove_roles(it.guild.get_role(s)); await uzytkownik.add_roles(it.guild.get_role(n)); break
     elif m1 in uzytkownik.roles:
         await uzytkownik.remove_roles(m1); await uzytkownik.add_roles(m2); status = "🔴 2/3 Minusy"
     else: await uzytkownik.add_roles(m1)
-    
-    emb = discord.Embed(title="⚠️ Minus", description=f"Pracownik: {uzytkownik.mention}\nStatus: {status}\nPowód: {powod}", color=0xE74C3C)
-    emb.set_footer(text=f"Nadano przez: {it.user.display_name}", icon_url=it.user.display_avatar.url)
+    emb = discord.Embed(title="⚠️ Minus", description=f"{uzytkownik.mention}\nStatus: {status}\nPowód: {powod}", color=0xE74C3C)
     if os.path.exists(img):
         f = discord.File(img, filename=img); emb.set_image(url=f"attachment://{img}")
         await it.response.send_message(file=f, embed=emb)
     else: await it.response.send_message(embed=emb)
 
-@bot.tree.command(name="plakietka", description="Kod plakietki RP")
+@bot.tree.command(name="imie", description="Ustaw dane RP")
+async def imie_cmd(it: discord.Interaction, imie: str, nazwisko: str):
+    nick = f"{imie.capitalize()} {nazwisko.capitalize()}"
+    d = load_db("imiona_rp.json"); d[str(it.user.id)] = nick; save_db("imiona_rp.json", d)
+    try: await it.user.edit(nick=nick)
+    except: pass
+    await it.response.send_message(f"✅ Ustawiono: {nick}", ephemeral=True)
+
+@bot.tree.command(name="plakietka", description="Kod plakietki")
 async def plakietka_cmd(it: discord.Interaction):
     d_rp = load_db("imiona_rp.json"); imie_rp = d_rp.get(str(it.user.id), it.user.display_name)
     user_roles = [r.id for r in it.user.roles]
@@ -181,40 +214,18 @@ async def menu_cmd(it: discord.Interaction):
     emb = discord.Embed(title="☕ Cennik Bean Machine", color=0xFF7600)
     txt = "\n".join([f"• **{p}** — {c}$" for p, c in PRODUKTY.items()])
     emb.add_field(name="Produkty", value=txt, inline=False)
-    view = ui.View(); view.add_item(MenuDrop("🛒 Wybierz produkt...", PRODUKTY)); view.add_item(MenuDrop("📦 Wybierz zestaw...", ZESTAWY))
+    view = ui.View(); view.add_item(MenuDrop("🛒 Produkty", PRODUKTY)); view.add_item(MenuDrop("📦 Zestawy", ZESTAWY))
     if os.path.exists("b1.png"):
         f = discord.File("b1.png", filename="b1.png"); emb.set_image(url="attachment://b1.png")
         await it.response.send_message(file=f, embed=emb, view=view)
     else: await it.response.send_message(embed=emb, view=view)
 
-@bot.tree.command(name="imie", description="Ustaw dane RP")
-async def imie_cmd(it: discord.Interaction, imie: str, nazwisko: str):
-    nick = f"{imie.capitalize()} {nazwisko.capitalize()}"
-    d = load_db("imiona_rp.json"); d[str(it.user.id)] = nick; save_db("imiona_rp.json", d)
-    try: await it.user.edit(nick=nick)
-    except: pass
-    await it.response.send_message(f"✅ Ustawiono: {nick}", ephemeral=True)
-
-@bot.tree.command(name="zwolnij", description="Zwalnia pracownika")
-async def zwolnij_cmd(it: discord.Interaction, uzytkownik: discord.Member, powod: str):
-    wszystkie = list(PLAKIETKI.keys()) + [GLOWNA_RANGA_PRAC_ID] + list(ROLE_PLUSY.values()) + list(ROLE_MINUSY.values())
-    await uzytkownik.remove_roles(*[r for r in [it.guild.get_role(rid) for rid in wszystkie] if r and r in uzytkownik.roles])
-    await it.response.send_message(embed=discord.Embed(title="🚫 Zwolnienie", description=f"Pracownik: {uzytkownik.mention}\nPowód: {powod}", color=0x000000))
-
-@bot.tree.command(name="usung", description="Usuń/Edytuj godziny")
-async def usung_cmd(it: discord.Interaction, uzytkownik: discord.Member, ilosc: str):
-    d = load_db("godzinki.json"); uid = str(uzytkownik.id)
-    if ilosc.lower() == "wszystkie": d[uid] = 0.0
-    elif "h" in ilosc: d[uid] = max(0, d.get(uid,0) - float(ilosc.replace("h","")))
-    save_db("godzinki.json", d)
-    await it.response.send_message(f"✅ Zaktualizowano godziny.", ephemeral=True)
-
-@bot.tree.command(name="embed", description="Wyślij ogłoszenie")
+@bot.tree.command(name="embed", description="Wyslij ogłoszenie")
 async def embed_cmd(it: discord.Interaction, tytul: str, tresc: str, kolor: str = "FF7600"):
     try:
         c = int(kolor.replace("#", ""), 16)
         emb = discord.Embed(title=tytul, description=tresc.replace("\\n", "\n"), color=c)
         await it.response.send_message("Wysłano!", ephemeral=True); await it.channel.send(embed=emb)
-    except: await it.response.send_message("Błąd HEX.", ephemeral=True)
+    except: await it.response.send_message("Błąd koloru.", ephemeral=True)
 
 bot.run(DISCORD_TOKEN)
