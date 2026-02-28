@@ -36,14 +36,14 @@ ZESTAWY = {
     "📦 Beam Basic (2 kawy + 2 ciasta)": 5000
 }
 
-# Główny select do wyboru kalkulatora
+# Persistentny select w głównym menu
 class MainSelect(ui.Select):
     def __init__(self):
         options = [
             discord.SelectOption(label="🛒 kalkulator pojedynczego produktu", value="produkt", emoji="🛒"),
             discord.SelectOption(label="📦 kalkulator zestawów", value="zestaw", emoji="📦")
         ]
-        super().__init__(placeholder="Wybierz opcję...", min_values=1, max_values=1, options=options)
+        super().__init__(placeholder="Wybierz opcję...", min_values=1, max_values=1, options=options, custom_id="main_select")
 
     async def callback(self, interaction: discord.Interaction):
         if self.values[0] == "produkt":
@@ -56,7 +56,6 @@ class MainSelect(ui.Select):
         options = []
         for kategoria, produkty in MENU.items():
             for nazwa, cena in produkty.items():
-                # Emoji z nazwy, bez duplikowania
                 emoji = nazwa.split()[0]  # np. ☕
                 options.append(discord.SelectOption(label=nazwa, value=f"{kategoria}|{nazwa}|{cena}", emoji=emoji))
         
@@ -65,7 +64,7 @@ class MainSelect(ui.Select):
         view.add_item(AnulujButton())
         
         embed = discord.Embed(title="Wybierz produkt", color=0xFF7600)
-        await interaction.response.edit_message(embed=embed, view=view)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
     async def pokaz_wybor_zestawu(self, interaction: discord.Interaction):
         options = []
@@ -77,7 +76,7 @@ class MainSelect(ui.Select):
         view.add_item(AnulujButton())
         
         embed = discord.Embed(title="Wybierz zestaw", color=0xFF7600)
-        await interaction.response.edit_message(embed=embed, view=view)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 class ProduktSelect(ui.Select):
     def __init__(self, options):
@@ -135,7 +134,7 @@ class IloscViewProdukt(ui.View):
         embed.add_field(name="Produkt", value=self.produkt, inline=True)
         embed.add_field(name="Ilość", value=self.ilosc, inline=True)
         embed.add_field(name="Cena całkowita", value=f"**{total} $**", inline=False)
-        embed.set_footer(text="Smacznie, drogo i z klasą!")
+        embed.set_footer(text="Menu najlepszej kawiarni w mieście!!")
         view = ui.View()
         view.add_item(ZamknijButton())
         await interaction.response.edit_message(embed=embed, view=view)
@@ -181,7 +180,7 @@ class IloscViewZestaw(ui.View):
         embed.add_field(name="Zestaw", value=self.nazwa, inline=True)
         embed.add_field(name="Ilość zestawów", value=self.ilosc, inline=True)
         embed.add_field(name="Cena całkowita", value=f"**{total} $**", inline=False)
-        embed.set_footer(text="Smacznie, drogo i z klasą!")
+        embed.set_footer(text="Menu najlepszej kawiarni w mieście!!")
         view = ui.View()
         view.add_item(ZamknijButton())
         await interaction.response.edit_message(embed=embed, view=view)
@@ -232,12 +231,12 @@ async def menu(interaction: discord.Interaction):
     embed = discord.Embed(title="**Beam Machine – Menu**", color=0xFF7600)
     
     # Dodanie obrazka jako banner (jeśli plik istnieje w katalogu)
+    file = None
     try:
         with open("b1.png", "rb") as f:
             file = discord.File(f, filename="b1.png")
             embed.set_image(url="attachment://b1.png")
     except FileNotFoundError:
-        file = None
         print("Plik b1.png nie znaleziony, pomijam banner.")
     
     # Formatowanie kategorii – nagłówki z # spacją i emotką
