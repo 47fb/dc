@@ -12,7 +12,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# Menu kawiarni Beam Machine
+# Menu kawiarni Bean Machine (poprawiona nazwa)
 MENU = {
     "napoje": {
         "☕ Expresso": 1100,
@@ -30,8 +30,8 @@ MENU = {
 }
 
 ZESTAWY = {
-    "📦 Beam Mini (1 kawa + 1 ciasto)": 1500,
-    "📦 Beam Basic (2 kawy + 2 ciasta)": 5000
+    "📦 Bean Mini (1 kawa + 1 ciasto)": 1500,
+    "📦 Bean Basic (2 kawy + 2 ciasta)": 5000
 }
 
 # Główny select do wyboru kalkulatora
@@ -69,7 +69,6 @@ class ProduktSelectView(ui.View):
         options = []
         for kategoria, produkty in MENU.items():
             for nazwa, cena in produkty.items():
-                # Emoji jest już w nazwie, więc nie trzeba go wyciągać osobno
                 options.append(discord.SelectOption(label=nazwa, value=f"{nazwa}|{cena}", emoji=nazwa.split()[0]))
         self.add_item(ProduktSelect(options))
         self.add_item(AnulujButton())
@@ -165,11 +164,11 @@ async def on_ready():
     except Exception as e:
         print(f"❌ Błąd synchronizacji: {e}")
 
-@bot.tree.command(name="cennik", description="Wyświetla menu Beam Machine")
-async def cennik(interaction: discord.Interaction):
+@bot.tree.command(name="menu", description="Wyświetla menu Bean Machine")
+async def menu(interaction: discord.Interaction):
     # Większy embed z obrazkiem
     embed = discord.Embed(
-        title="**Beam Machine – Menu**",
+        title="**Bean Machine – Menu**",
         color=0xFF7600,
         description="Menu najlepszej kawiarni w mieście!!"
     )
@@ -183,9 +182,9 @@ async def cennik(interaction: discord.Interaction):
     except FileNotFoundError:
         pass  # Brak obrazka – wyświetlamy bez
 
-    # Formatowanie menu – nagłówki z #, spacją i emotką
-    napoje = "\n".join([f"• {produkt} ``×`` **{cena} $**" for produkt, cena in MENU["napoje"].items()])
-    jedzenie = "\n".join([f"• {produkt} ``×`` **{cena} $**" for produkt, cena in MENU["jedzenie"].items()])
+    # Formatowanie menu – nagłówki z # i emotką, produkty w formacie "• nazwa × cena $"
+    napoje = "\n".join([f"• {produkt} × {cena} $" for produkt, cena in MENU["napoje"].items()])
+    jedzenie = "\n".join([f"• {produkt} × {cena} $" for produkt, cena in MENU["jedzenie"].items()])
 
     embed.add_field(name="# ☕ Napoje", value=napoje, inline=False)
     embed.add_field(name="# 🍰 Jedzenie", value=jedzenie, inline=False)
