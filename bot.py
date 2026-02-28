@@ -3,7 +3,6 @@ from discord.ext import commands
 from discord import app_commands, ui, ButtonStyle
 import os
 
-# Token ze zmiennych środowiskowych
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 if not DISCORD_TOKEN:
     print('❌ Brak tokenu DISCORD_TOKEN')
@@ -30,13 +29,12 @@ MENU = {
     }
 }
 
-# Zestawy
 ZESTAWY = {
     "📦 Beam Mini (1 kawa + 1 ciasto)": 1500,
     "📦 Beam Basic (2 kawy + 2 ciasta)": 5000
 }
 
-# Główny select do wyboru kalkulatora – tylko jedna emotka w wartości, label bez emotki
+# Główny select do wyboru kalkulatora
 class MainSelect(ui.Select):
     def __init__(self):
         options = [
@@ -47,33 +45,77 @@ class MainSelect(ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         if self.values[0] == "produkt":
-            await interaction.response.send_modal(ProduktModal())
+            # Najpierw wybór produktu przez select w widoku
+            await interaction.response.send_message(
+                embed=discord.Embed(title="Wybierz produkt", color=0xFF7600),
+                view=ProduktSelectView(),
+                ephemeral=True
+            )
         else:
-            await interaction.response.send_modal(ZestawModal())
+            # Wybór zestawu
+            await interaction.response.send_message(
+                embed=discord.Embed(title="Wybierz zestaw", color=0xFF7600),
+                view=ZestawSelectView(),
+                ephemeral=True
+            )
 
 class MainView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
         self.add_item(MainSelect())
 
-# Modal dla pojedynczego produktu
-class ProduktModal(ui.Modal, title="🛒 Kalkulator pojedynczego produktu"):
-    # Tworzymy listę opcji dla selecta w modalu – każda z emotką w wartości
-    produkty_opcje = []
-    for kat in MENU.values():
-        for nazwa, cena in kat.items():
-            # Emotka jest już w nazwie, więc nie dodajemy osobno
-            produkty_opcje.append(discord.SelectOption(label=nazwa, value=f"{nazwa}|{cena}"))
+# Widok z selectem produktów
+class ProduktSelectView(ui.View):
+    def __init__(self):
+        super().__init__(timeout=60)
+        # Tworzymy listę produktów
+        options = []
+        for kategoria, produkty in MENU.items():
+            for nazwa, cena in produkty.items():
+                # Emoji tylko jedno (pierwsze)
+                emoji = nazwa.split()[0]
+                options.append(discord.SelectOption(label=nazwa, value=f"{nazwa}|{cena}", emoji=emoji))
+        self.add_item(ProduktSelect(options))
 
-    produkt = ui.Select(
-        placeholder="Wybierz produkt",
-        options=produkty_opcje
-    )
-    ilosc = ui.TextInput(label="Ile produktów sprzedajesz?", placeholder="Wpisz liczbę", default="1", min_length=1, max_length=3)
+class ProduktSelect(ui.Select):
+    def __init__(self, options):
+        super().__init__(placeholder="Wybierz produkt...", min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        nazwa, cena_str = self.values[0].split('|')
+        cena = int(cena_str)
+        # Otwieramy modal z ilością
+        await interaction.response.send_modal(IloscModal(nazwa, cena, typ="produkt"))
+
+# Widok z selectem zestawów
+class ZestawSelectView(ui.View):
+    def __init__(self):
+        super().__init__(timeout=60)
+        options = []
+        for nazwa, cena in ZESTAWY.items():
+            options.append(discord.SelectOption(label=nazwa, value=f"{nazwa}|{cena}", emoji="📦"))
+        self.add_item(ZestawSelect(options))
+
+class ZestawSelect(ui.Select):
+    def __init__(self, options):
+        super().__init__(placeholder="Wybierz zestaw...", min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        nazwa, cena_str = self.values[0].split('|')
+        cena = int(cena_str)
+        await interaction.response.send_modal(IloscModal(nazwa, cena, typ="zestaw"))
+
+# Modal do wpisania ilości
+class IloscModal(ui.Modal, title="Ile sprzedajesz?"):
+    def __init__(self, nazwa, cena, typ):
+        super().__init__()
+        self.nazwa = nazwa
+        self.cena = cena
+        self.typ = typ
+        self.ilosc = ui.TextInput(label="Ilość", placeholder="Wpisz liczbę", default="1", min_length=1, max_length=3)
+        self.add_item(self.ilosc)
 
     async def on_submit(self, interaction: discord.Interaction):
-        nazwa, cena_str = self.produkt.values[0].split('|')
-        cena = int(cena_str)
         try:
             ilosc = int(self.ilosc.value)
             if ilosc < 1:
@@ -83,46 +125,19 @@ class ProduktModal(ui.Modal, title="🛒 Kalkulator pojedynczego produktu"):
             await interaction.response.send_message("❌ Wpisz poprawną liczbę.", ephemeral=True)
             return
 
-        total = cena * ilosc
-        embed = discord.Embed(title="🛒 Wynik kalkulacji", color=0xFF7600)
-        embed.add_field(name="Produkt", value=nazwa, inline=True)
-        embed.add_field(name="Cena za sztukę", value=f"{cena} $", inline=True)
+        total = self.cena * ilosc
+        embed = discord.Embed(title="Wynik kalkulacji", color=0xFF7600)
+        if self.typ == "produkt":
+            embed.title = "🛒 Wynik kalkulacji"
+            embed.add_field(name="Produkt", value=self.nazwa, inline=True)
+            embed.add_field(name="Cena za sztukę", value=f"{self.cena} $", inline=True)
+        else:
+            embed.title = "📦 Wynik kalkulacji zestawu"
+            embed.add_field(name="Zestaw", value=self.nazwa, inline=True)
+            embed.add_field(name="Cena za zestaw", value=f"{self.cena} $", inline=True)
         embed.add_field(name="Ilość", value=str(ilosc), inline=True)
         embed.add_field(name="Łączna cena", value=f"**{total} $**", inline=False)
-        embed.set_footer(text="Menu najlepszej kawiarni w mieście!!")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-
-# Modal dla zestawów
-class ZestawModal(ui.Modal, title="📦 Kalkulator zestawów"):
-    zestaw_opcje = [
-        discord.SelectOption(label=nazwa, value=f"{nazwa}|{cena}")
-        for nazwa, cena in ZESTAWY.items()
-    ]
-    zestaw = ui.Select(
-        placeholder="Wybierz zestaw",
-        options=zestaw_opcje
-    )
-    ilosc = ui.TextInput(label="Ile zestawów sprzedajesz?", placeholder="Wpisz liczbę", default="1", min_length=1, max_length=3)
-
-    async def on_submit(self, interaction: discord.Interaction):
-        nazwa, cena_str = self.zestaw.values[0].split('|')
-        cena = int(cena_str)
-        try:
-            ilosc = int(self.ilosc.value)
-            if ilosc < 1:
-                await interaction.response.send_message("❌ Ilość musi być co najmniej 1.", ephemeral=True)
-                return
-        except ValueError:
-            await interaction.response.send_message("❌ Wpisz poprawną liczbę.", ephemeral=True)
-            return
-
-        total = cena * ilosc
-        embed = discord.Embed(title="📦 Wynik kalkulacji zestawu", color=0xFF7600)
-        embed.add_field(name="Zestaw", value=nazwa, inline=True)
-        embed.add_field(name="Cena za zestaw", value=f"{cena} $", inline=True)
-        embed.add_field(name="Ilość zestawów", value=str(ilosc), inline=True)
-        embed.add_field(name="Łączna cena", value=f"**{total} $**", inline=False)
-        embed.set_footer(text="Menu najlepszej kawiarni w mieście!!")
+        embed.set_footer(text="Smacznie, drogo i z klasą!")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 @bot.event
@@ -136,25 +151,45 @@ async def on_ready():
 
 @bot.tree.command(name="cennik", description="Wyświetla menu Beam Machine")
 async def cennik(interaction: discord.Interaction):
-    # Embed z menu – dokładnie według opisu
-    embed = discord.Embed(title="**Beam Machine – Menu**", color=0xFF7600)
+    # Większy embed z obrazkiem
+    embed = discord.Embed(
+        title="**Beam Machine – Menu**",
+        color=0xFF7600,
+        description="Menu najlepszej kawiarni w mieście!!"
+    )
     
-    # Napoje
-    napoje_text = ""
+    # Dodanie obrazka jako banner (wymaga pliku b1.png w katalogu)
+    # Upewnij się, że plik istnieje i ścieżka jest poprawna
+    try:
+        with open("b1.png", "rb") as f:
+            file = discord.File(f, filename="b1.png")
+            embed.set_image(url="attachment://b1.png")
+    except FileNotFoundError:
+        # Jeśli pliku nie ma, po prostu pomiń
+        pass
+
+    # Formatowanie menu
+    napoje = ""
     for produkt, cena in MENU["napoje"].items():
-        # produkt zawiera już emotkę, np. "☕ Expresso"
-        napoje_text += f"• {produkt} – **{cena} $**\n"
-    embed.add_field(name="# ☕ × Napoje", value=napoje_text, inline=False)
+        # Użycie ``×`` jako separatora
+        napoje += f"• {produkt} ``×`` **{cena} $**\n"
     
-    # Jedzenie
-    jedzenie_text = ""
+    jedzenie = ""
     for produkt, cena in MENU["jedzenie"].items():
-        jedzenie_text += f"• {produkt} – **{cena} $**\n"
-    embed.add_field(name="# 🍰 × Jedzenie", value=jedzenie_text, inline=False)
-    
+        jedzenie += f"• {produkt} ``×`` **{cena} $**\n"
+
+    embed.add_field(name="# ☕ × Napoje", value=napoje, inline=False)
+    embed.add_field(name="# 🍰 × Jedzenie", value=jedzenie, inline=False)
     embed.set_footer(text="Menu najlepszej kawiarni w mieście!!")
-    
+
     view = MainView()
-    await interaction.response.send_message(embed=embed, view=view)
+    
+    # Jeśli mamy plik, wysyłamy z załącznikiem
+    try:
+        with open("b1.png", "rb") as f:
+            file = discord.File(f, filename="b1.png")
+            await interaction.response.send_message(embed=embed, file=file, view=view)
+    except FileNotFoundError:
+        await interaction.response.send_message(embed=embed, view=view)
 
 bot.run(DISCORD_TOKEN)
