@@ -4,7 +4,8 @@ from discord import app_commands, ui, ButtonStyle
 import os
 
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
-ALLOWED_CHANNEL_ID = 1309969415483297795  # ID Twojego kanału
+ALLOWED_CHANNEL_ID = 1309969415483297795  # ID kanału menu
+REQUIRED_ROLE_ID = 1309969414099304448    # ID rangi od której można dawać plusy
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -82,7 +83,6 @@ async def on_ready():
 
 @bot.tree.command(name="menu", description="Wyświetla menu Bean Machine")
 async def menu(interaction: discord.Interaction):
-    # BLOKADA KANAŁU
     if interaction.channel_id != ALLOWED_CHANNEL_ID:
         await interaction.response.send_message(
             f"❌ Ta komenda może być używana tylko na kanale <#{ALLOWED_CHANNEL_ID}>!", 
@@ -112,7 +112,64 @@ async def menu(interaction: discord.Interaction):
     except:
         await interaction.response.send_message(embed=embed, view=MainView())
 
+# --- KOMENDA PLUS ---
+@bot.tree.command(name="plus", description="Nadaje plusa pracownikowi (Wymagana ranga Zarząd+)")
+@app_commands.describe(
+    uzytkownik="Oznacz osobę, która ma dostać plusa",
+    powod="Podaj powód przyznania plusa",
+    rodzaj="Wybierz poziom plusa"
+)
+@app_commands.choices(rodzaj=[
+    app_commands.Choice(name="1 Plus", value=1),
+    app_commands.Choice(name="2 Plus", value=2),
+    app_commands.Choice(name="3 Plus", value=3),
+])
+async def plus(interaction: discord.Interaction, uzytkownik: discord.Member, powod: str, rodzaj: app_commands.Choice[int]):
+    # Sprawdzenie uprawnień (ranga o danym ID lub wyższa w hierarchii)
+    required_role = interaction.guild.get_role(REQUIRED_ROLE_ID)
+    if not required_role or not any(r.position >= required_role.position for r in interaction.user.roles):
+        await interaction.response.send_message("❌ Nie masz wystarczających uprawnień, aby użyć tej komendy!", ephemeral=True)
+        return
+
+    # ID ról plusów
+    role_ids = {
+        1: 1475172069653348423,
+        2: 1475172072685834354,
+        3: 1475172075365863688
+    }
+
+    rola_plusa = interaction.guild.get_role(role_ids[rodzaj.value])
+    if not rola_plusa:
+        await interaction.response.send_message("❌ Błąd: Nie odnaleziono roli plusa na serwerze.", ephemeral=True)
+        return
+
+    try:
+        await uzytkownik.add_roles(rola_plusa)
+
+        # Tworzenie Embedu
+        embed = discord.Embed(
+            title="🌟 Przyznano Plusa!",
+            color=0x2ECC71,
+            timestamp=discord.utils.utcnow()
+        )
+        
+        embed.add_field(name="👤 Kto:", value=uzytkownik.mention, inline=True)
+        embed.add_field(name="⭐ Poziom:", value=f"**{rodzaj.value}/3**", inline=True)
+        embed.add_field(name="📝 Powód:", value=f"*{powod}*", inline=False)
+        
+        if uzytkownik.display_avatar:
+            embed.set_thumbnail(url=uzytkownik.display_avatar.url)
+            
+        embed.set_footer(
+            text=f"Nadane przez: {interaction.user.display_name}", 
+            icon_url=interaction.user.display_avatar.url if interaction.user.display_avatar else None
+        )
+
+        await interaction.response.send_message(embed=embed)
+
+    except discord.Forbidden:
+        await interaction.response.send_message("❌ Bot nie ma uprawnień do zarządzania rolami. Sprawdź hierarchię ról bota.", ephemeral=True)
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Wystąpił nieoczekiwany błąd: {e}", ephemeral=True)
+
 bot.run(DISCORD_TOKEN)
-
-
-
