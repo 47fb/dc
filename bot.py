@@ -28,7 +28,7 @@ DEGRADACJA_MAP = {
     1309969414023811169: 1309969414023811168
 }
 ROLE_PLUSY = {1: 1475172069653348423, 2: 1475172072685834354, 3: 1475172075365863688}
-ROLE_MINUSY = {1: 1475172069653348423, 2: 1475172072685834354, 3: 1475172075365863688}
+ROLE_MINUSY = {1: 1475172078435959086, 2: 1475172080483045469, 3: 1475172083100291276}
 
 PLAKIETKI = {
     1474774583294038106: "/opis ~HC_13~ ☕Bean Machine☕ ~n~ ~s~ {dane} ~n~ ~HC_2~ [Właściciel]",
@@ -283,3 +283,4 @@ async def embed_cmd(interaction: discord.Interaction, tytul: str, tresc: str, pl
     await interaction.response.send_message("✅ Wysłano!", ephemeral=True)
 
 bot.run(DISCORD_TOKEN)
+
