@@ -98,7 +98,7 @@ async def on_member_join(member):
         if os.path.exists("hej.png"):
             file = discord.File("hej.png", filename="hej.png")
             emb.set_image(url="attachment://hej.png")
-            await ch.send(file=file, embed=e
+            await ch.send(file=file, embed=emb)
         else: await ch.send(embed=emb)
 
 # --- KOMENDY ---
@@ -240,4 +240,3 @@ async def embed_cmd(it: discord.Interaction, tytul: str, tresc: str, kolor: str 
     except: await it.response.send_message("Błędny kolor HEX.", ephemeral=True)
 
 bot.run(DISCORD_TOKEN)
-
